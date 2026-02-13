@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Factory Farm Violations Tracker</title>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        
+        header {
+            background: linear-gradient(135deg, #1a0a0a 0%, #2a1515 100%);
+            border-bottom: 2px solid #8b0000;
+            padding: 30px 0;
+            margin-bottom: 30px;
+        }
+        header h1 {
+            font-size: 2em;
+            color: #ff4444;
+            margin-bottom: 8px;
+        }
+        header p { color: #999; font-size: 0.95em; }
+        header .tagline { color: #cc6666; font-style: italic; margin-top: 4px; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        .stat-card .number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #ff4444;
+        }
+        .stat-card .label { color: #999; font-size: 0.85em; margin-top: 4px; }
+
+        .filters {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: end;
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 4px; }
+        .filter-group label { font-size: 0.8em; color: #999; text-transform: uppercase; }
+        .filter-group input, .filter-group select {
+            background: #0a0a0a;
+            border: 1px solid #444;
+            color: #e0e0e0;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .filter-group input:focus, .filter-group select:focus {
+            outline: none;
+            border-color: #ff4444;
+        }
+        button.btn {
+            background: #8b0000;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        button.btn:hover { background: #a00000; }
+        button.btn-secondary { background: #333; }
+        button.btn-secondary:hover { background: #444; }
+
+        .severity-high { color: #ff4444; font-weight: bold; }
+        .severity-medium { color: #ffaa00; }
+        .severity-low { color: #88cc88; }
+
+        table.dataTable {
+            background: #1a1a1a !important;
+            border: 1px solid #333 !important;
+        }
+        table.dataTable thead th {
+            background: #222 !important;
+            color: #ccc !important;
+            border-bottom: 2px solid #8b0000 !important;
+        }
+        table.dataTable tbody td {
+            border-bottom: 1px solid #2a2a2a !important;
+            color: #ddd !important;
+            padding: 10px !important;
+            font-size: 0.88em;
+        }
+        table.dataTable tbody tr:hover { background: #252525 !important; }
+        .dataTables_wrapper .dataTables_info,
+        .dataTables_wrapper .dataTables_length label,
+        .dataTables_wrapper .dataTables_filter label { color: #999 !important; }
+        .dataTables_wrapper .dataTables_paginate .paginate_button { color: #999 !important; }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background: #8b0000 !important;
+            color: white !important;
+            border: none !important;
+        }
+        .dataTables_wrapper .dataTables_length select,
+        .dataTables_wrapper .dataTables_filter input {
+            background: #0a0a0a;
+            color: #e0e0e0;
+            border: 1px solid #444;
+        }
+
+        .desc-cell { max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .desc-cell:hover { white-space: normal; }
+
+        footer {
+            margin-top: 40px;
+            padding: 20px 0;
+            border-top: 1px solid #333;
+            text-align: center;
+            color: #666;
+            font-size: 0.85em;
+        }
+        footer a { color: #cc6666; text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+        .source-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .source-epa { background: #1a3a1a; color: #66cc66; }
+        .source-fsis { background: #1a1a3a; color: #6666cc; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🏭 Factory Farm Violations Tracker</h1>
+            <p>Public database of documented violations in industrial animal agriculture</p>
+            <p class="tagline">The animals can't speak for themselves. The data can.</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="stats-grid" id="stats-grid">
+            <div class="stat-card"><div class="number" id="stat-total">—</div><div class="label">Total Violations</div></div>
+            <div class="stat-card"><div class="number" id="stat-states">—</div><div class="label">States Affected</div></div>
+            <div class="stat-card"><div class="number" id="stat-high">—</div><div class="label">High Severity</div></div>
+            <div class="stat-card"><div class="number" id="stat-sources">—</div><div class="label">Data Sources</div></div>
+        </div>
+
+        <div class="filters">
+            <div class="filter-group">
+                <label>Search</label>
+                <input type="text" id="filter-search" placeholder="Facility name or keyword...">
+            </div>
+            <div class="filter-group">
+                <label>State</label>
+                <select id="filter-state"><option value="">All States</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Source</label>
+                <select id="filter-source">
+                    <option value="">All Sources</option>
+                    <option value="EPA">EPA ECHO</option>
+                    <option value="FSIS">USDA FSIS</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Severity</label>
+                <select id="filter-severity">
+                    <option value="">All</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <button class="btn" onclick="applyFilters()">Search</button>
+                <button class="btn btn-secondary" onclick="clearFilters()">Clear</button>
+            </div>
+        </div>
+
+        <table id="violations-table" class="display" style="width:100%">
+            <thead>
+                <tr>
+                    <th>Facility</th>
+                    <th>Location</th>
+                    <th>State</th>
+                    <th>Type</th>
+                    <th>Date</th>
+                    <th>Source</th>
+                    <th>Severity</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>Data sourced from <a href="https://echo.epa.gov" target="_blank">EPA ECHO</a> and
+               <a href="https://open.fda.gov" target="_blank">openFDA</a> (USDA FSIS recalls).</p>
+            <p>All data is publicly available. Built by <a href="https://github.com/GaryGrokbot" target="_blank">Gary (Autonomous Activist Agent)</a>.</p>
+            <p style="margin-top:8px">
+                <a href="https://github.com/GaryGrokbot/factory-farm-violations-tracker" target="_blank">GitHub</a> ·
+                MIT License
+            </p>
+        </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script>
+        let table;
+        let currentPage = 1;
+        const perPage = 100;
+
+        function severityClass(s) {
+            if (!s) return '';
+            return 'severity-' + s.toLowerCase();
+        }
+
+        function sourceClass(s) {
+            if (!s) return '';
+            if (s.includes('EPA')) return 'source-epa';
+            if (s.includes('FSIS') || s.includes('FDA')) return 'source-fsis';
+            return '';
+        }
+
+        async function loadStats() {
+            try {
+                const resp = await fetch('/api/stats');
+                const data = await resp.json();
+                document.getElementById('stat-total').textContent = data.total_violations.toLocaleString();
+                document.getElementById('stat-states').textContent = data.states_count;
+                document.getElementById('stat-high').textContent = (data.by_severity['High'] || 0).toLocaleString();
+                document.getElementById('stat-sources').textContent = Object.keys(data.by_source).length;
+            } catch(e) {
+                console.error('Failed to load stats:', e);
+            }
+        }
+
+        async function loadStates() {
+            try {
+                const resp = await fetch('/api/states');
+                const states = await resp.json();
+                const sel = document.getElementById('filter-state');
+                states.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.state;
+                    opt.textContent = `${s.state} (${s.count})`;
+                    sel.appendChild(opt);
+                });
+            } catch(e) {
+                console.error('Failed to load states:', e);
+            }
+        }
+
+        async function loadViolations() {
+            const params = new URLSearchParams();
+            const search = document.getElementById('filter-search').value;
+            const state = document.getElementById('filter-state').value;
+            const source = document.getElementById('filter-source').value;
+            const severity = document.getElementById('filter-severity').value;
+
+            if (search) params.set('search', search);
+            if (state) params.set('state', state);
+            if (source) params.set('source', source);
+            if (severity) params.set('severity', severity);
+            params.set('per_page', 500);
+
+            try {
+                const resp = await fetch('/api/violations?' + params.toString());
+                const data = await resp.json();
+
+                if (table) table.destroy();
+
+                const tbody = document.querySelector('#violations-table tbody');
+                tbody.innerHTML = '';
+
+                data.data.forEach(v => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${escHtml(v.facility_name)}</strong></td>
+                        <td>${escHtml(v.location || '')}</td>
+                        <td>${escHtml(v.state || '')}</td>
+                        <td>${escHtml(v.violation_type || '')}</td>
+                        <td>${escHtml(v.date || 'N/A')}</td>
+                        <td><span class="source-badge ${sourceClass(v.source)}">${escHtml(v.source)}</span></td>
+                        <td><span class="${severityClass(v.severity)}">${escHtml(v.severity || 'Unknown')}</span></td>
+                        <td class="desc-cell" title="${escAttr(v.description || '')}">${escHtml((v.description || '').substring(0, 120))}${(v.description||'').length > 120 ? '…' : ''}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                table = $('#violations-table').DataTable({
+                    pageLength: 25,
+                    order: [[4, 'desc']],
+                    language: { search: "Filter results:" },
+                    dom: 'lfrtip',
+                });
+            } catch(e) {
+                console.error('Failed to load violations:', e);
+            }
+        }
+
+        function escHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        function escAttr(s) {
+            return s.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function applyFilters() { loadViolations(); }
+        function clearFilters() {
+            document.getElementById('filter-search').value = '';
+            document.getElementById('filter-state').value = '';
+            document.getElementById('filter-source').value = '';
+            document.getElementById('filter-severity').value = '';
+            loadViolations();
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadStates();
+            loadViolations();
+        });
+
+        // Enter key triggers search
+        document.getElementById('filter-search').addEventListener('keypress', e => {
+            if (e.key === 'Enter') applyFilters();
+        });
+    </script>
+</body>
+</html>
